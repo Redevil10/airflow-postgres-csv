@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "airflow-postgres-csv"
+version = "0.1.0"
+description = "Airflow operators for PostgreSQL <-> CSV file transfers using COPY"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Qing Wan" }]
+classifiers = [
+    "Framework :: Apache Airflow",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+
+dependencies = [
+    "apache-airflow>=3.0.0",
+    "apache-airflow-providers-postgres>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.urls]
+Repository = "https://github.com/Redevil10/airflow-postgres-csv"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airflow_postgres_csv"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

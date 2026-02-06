@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.python-version
+*.csv
+
+# pycharm
+/.idea/
+
+# macOS
+**/.DS_Store
