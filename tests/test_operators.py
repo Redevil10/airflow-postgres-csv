@@ -1,8 +1,6 @@
 """Tests for PostgresToCsvOperator and CsvToPostgresOperator."""
 
-import os
-import tempfile
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from airflow.exceptions import AirflowException
@@ -12,9 +10,7 @@ from airflow_postgres_csv.operators import CsvToPostgresOperator, PostgresToCsvO
 
 @pytest.fixture
 def mock_pg_hook():
-    with patch(
-        "airflow_postgres_csv.operators.PostgresHook"
-    ) as mock_hook_cls:
+    with patch("airflow_postgres_csv.operators.PostgresHook") as mock_hook_cls:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.mogrify.return_value = b"SELECT 1"
@@ -25,9 +21,7 @@ def mock_pg_hook():
         mock_hook_cls.return_value.get_conn.return_value.__enter__ = MagicMock(
             return_value=mock_conn
         )
-        mock_hook_cls.return_value.get_conn.return_value.__exit__ = MagicMock(
-            return_value=False
-        )
+        mock_hook_cls.return_value.get_conn.return_value.__exit__ = MagicMock(return_value=False)
 
         yield {
             "hook_cls": mock_hook_cls,

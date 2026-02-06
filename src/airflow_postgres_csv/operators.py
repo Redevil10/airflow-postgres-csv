@@ -1,12 +1,11 @@
 """Custom Airflow operators for PostgreSQL <-> CSV file transfers."""
 
 import os
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
 
 from airflow.exceptions import AirflowException
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk.bases.operator import BaseOperator
-from psycopg2 import sql as psycopg2_sql
 
 
 class PostgresToCsvOperator(BaseOperator):
@@ -55,7 +54,7 @@ class PostgresToCsvOperator(BaseOperator):
             raise AirflowException("Either sql_query or sql_file_path must be provided")
 
         if not self.sql_query:
-            with open(self.sql_file_path, "r", encoding="utf-8") as f:
+            with open(self.sql_file_path, encoding="utf-8") as f:
                 self.sql_query = f.read()
 
         pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
@@ -65,12 +64,8 @@ class PostgresToCsvOperator(BaseOperator):
 
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    "SET statement_timeout = %s;", (self.timeout * 60 * 1000,)
-                )
-                formatted_sql = cursor.mogrify(cleaned_sql, self.query_params).decode(
-                    "utf-8"
-                )
+                cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
+                formatted_sql = cursor.mogrify(cleaned_sql, self.query_params).decode("utf-8")
 
                 header_clause = " HEADER" if self.has_header else ""
                 copy_command = f"COPY ({formatted_sql}) TO STDOUT WITH CSV{header_clause}"
@@ -118,7 +113,7 @@ class CsvToPostgresOperator(BaseOperator):
         quote_char: str = '"',
         null_string: str = "",
         has_header: bool = True,
-        columns: Optional[List[str]] = None,
+        columns: list[str] | None = None,
         timeout: int = 60,
         **kwargs,
     ):
@@ -141,32 +136,24 @@ class CsvToPostgresOperator(BaseOperator):
 
         self.log.info("Loading %s into %s", self.csv_file_path, self.table_name)
 
-        # Build COPY command with safe identifier quoting
-        table_ident = self._build_table_identifier()
         column_clause = self._build_column_clause()
-        header_clause = self._build_header_clause()
+        header_clause = "HEADER" if self.has_header and not self.columns else ""
 
-        copy_sql = psycopg2_sql.SQL(
-            "COPY {table} {columns} FROM STDIN WITH CSV "
-            "DELIMITER {delimiter} QUOTE {quote} NULL {null_str} {header}"
-        ).format(
-            table=table_ident,
-            columns=column_clause,
-            delimiter=psycopg2_sql.Literal(self.delimiter),
-            quote=psycopg2_sql.Literal(self.quote_char),
-            null_str=psycopg2_sql.Literal(self.null_string),
-            header=psycopg2_sql.SQL(header_clause),
+        copy_command = (
+            f"COPY {self._quote_table_name()} {column_clause} "
+            f"FROM STDIN WITH CSV "
+            f"DELIMITER '{self.delimiter}' "
+            f"QUOTE '{self.quote_char}' "
+            f"NULL '{self.null_string}' "
+            f"{header_clause}"
         )
 
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    "SET statement_timeout = %s;", (self.timeout * 60 * 1000,)
-                )
-                copy_command = copy_sql.as_string(conn)
-                with open(self.csv_file_path, "r", encoding="utf-8") as csv_file:
+                cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
+                with open(self.csv_file_path, encoding="utf-8") as csv_file:
                     if self.columns and self.has_header:
-                        next(csv_file)  # skip file header when using explicit columns
+                        next(csv_file)
                     cursor.copy_expert(copy_command, csv_file)
                 rows = cursor.rowcount
             conn.commit()
@@ -179,20 +166,18 @@ class CsvToPostgresOperator(BaseOperator):
         )
         return rows
 
-    def _build_table_identifier(self) -> psycopg2_sql.Composable:
-        """Build a safely-quoted table identifier, handling schema.table format."""
+    @staticmethod
+    def _quote_identifier(name: str) -> str:
+        """Quote a SQL identifier, escaping any double quotes."""
+        escaped = name.replace('"', '""')
+        return f'"{escaped}"'
+
+    def _quote_table_name(self) -> str:
         parts = self.table_name.split(".")
-        return psycopg2_sql.SQL(".").join(psycopg2_sql.Identifier(p) for p in parts)
+        return ".".join(self._quote_identifier(p) for p in parts)
 
-    def _build_column_clause(self) -> psycopg2_sql.Composable:
+    def _build_column_clause(self) -> str:
         if not self.columns:
-            return psycopg2_sql.SQL("")
-        cols = psycopg2_sql.SQL(", ").join(
-            psycopg2_sql.Identifier(c) for c in self.columns
-        )
-        return psycopg2_sql.SQL("({})").format(cols)
-
-    def _build_header_clause(self) -> str:
-        if self.has_header and not self.columns:
-            return "HEADER"
-        return ""
+            return ""
+        cols = ", ".join(self._quote_identifier(c) for c in self.columns)
+        return f"({cols})"
