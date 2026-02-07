@@ -14,11 +14,17 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
+
       - name: Install dependencies
-        run: uv pip install -e ".[dev]" --system
+        run: |
+          uv venv .venv --python ${{ matrix.python-version }}
+          uv pip install -e ".[dev]" --python .venv/bin/python
+
       - name: Test
-        run: pytest -v
+        run: .venv/bin/pytest -v
