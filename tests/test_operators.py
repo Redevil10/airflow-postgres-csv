@@ -1,5 +1,6 @@
 """Tests for PostgresToCsvOperator and CsvToPostgresOperator."""
 
+import gzip
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -91,6 +92,21 @@ class TestPostgresToCsvOperator:
         copy_call = mock_pg_hook["cursor"].copy_expert.call_args[0][0]
         assert "HEADER" not in copy_call
 
+    def test_gzip_compression(self, mock_pg_hook, tmp_path):
+        csv_path = str(tmp_path / "out.csv.gz")
+        op = PostgresToCsvOperator(
+            task_id="test",
+            conn_id="test_conn",
+            csv_file_path=csv_path,
+            sql_query="SELECT 1",
+            compression="gzip",
+        )
+        op.execute(context={})
+        # Verify file was created and is gzip format
+        assert (tmp_path / "out.csv.gz").exists()
+        with gzip.open(csv_path, "rt") as f:
+            f.read()  # Should not raise
+
 
 class TestCsvToPostgresOperator:
     def test_raises_when_file_missing(self, mock_pg_hook):
@@ -151,3 +167,36 @@ class TestCsvToPostgresOperator:
         assert "col_b" in copy_call
         # Should NOT have HEADER since columns are explicit
         assert "HEADER" not in copy_call
+
+    def test_truncate_before_load(self, mock_pg_hook, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("a,b\n1,2\n")
+
+        op = CsvToPostgresOperator(
+            task_id="test",
+            conn_id="test_conn",
+            table_name="my_table",
+            csv_file_path=str(csv_file),
+            truncate=True,
+        )
+        op.execute(context={})
+        # Verify TRUNCATE was called
+        execute_calls = mock_pg_hook["cursor"].execute.call_args_list
+        truncate_called = any("TRUNCATE" in str(call) for call in execute_calls)
+        assert truncate_called
+
+    def test_gzip_compression(self, mock_pg_hook, tmp_path):
+        csv_file = tmp_path / "data.csv.gz"
+        with gzip.open(csv_file, "wt") as f:
+            f.write("a,b\n1,2\n")
+
+        op = CsvToPostgresOperator(
+            task_id="test",
+            conn_id="test_conn",
+            table_name="my_table",
+            csv_file_path=str(csv_file),
+            compression="gzip",
+        )
+        result = op.execute(context={})
+        assert result == 42  # mocked rowcount
+        mock_pg_hook["cursor"].copy_expert.assert_called_once()

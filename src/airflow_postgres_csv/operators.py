@@ -1,5 +1,6 @@
 """Custom Airflow operators for PostgreSQL <-> CSV file transfers."""
 
+import gzip
 import os
 from collections.abc import Sequence
 
@@ -20,6 +21,8 @@ class PostgresToCsvOperator(BaseOperator):
     :param sql_file_path: Path to a ``.sql`` file containing the query.
     :param query_params: Parameters passed to the SQL query via ``cursor.mogrify``.
     :param has_header: Include a CSV header row. Defaults to ``True``.
+    :param compression: Compression format. Supports ``"gzip"``.
+        Defaults to ``None`` (no compression).
     :param timeout: Query timeout in minutes. Defaults to ``60``.
     """
 
@@ -37,6 +40,7 @@ class PostgresToCsvOperator(BaseOperator):
         sql_file_path: str | None = None,
         query_params: dict | None = None,
         has_header: bool = True,
+        compression: str | None = None,
         timeout: int = 60,
         **kwargs,
     ):
@@ -47,6 +51,7 @@ class PostgresToCsvOperator(BaseOperator):
         self.sql_file_path = sql_file_path
         self.query_params = query_params or {}
         self.has_header = has_header
+        self.compression = compression
         self.timeout = timeout
 
     def execute(self, context):
@@ -71,7 +76,8 @@ class PostgresToCsvOperator(BaseOperator):
                 copy_command = f"COPY ({formatted_sql}) TO STDOUT WITH CSV{header_clause}"
 
                 rows = 0
-                with open(self.csv_file_path, "w", encoding="utf-8") as csv_file:
+                open_func = self._get_open_func()
+                with open_func(self.csv_file_path, "wt", encoding="utf-8") as csv_file:
                     cursor.copy_expert(copy_command, csv_file)
                     rows = cursor.rowcount
 
@@ -82,6 +88,10 @@ class PostgresToCsvOperator(BaseOperator):
             "with header" if self.has_header else "no header",
         )
         return self.csv_file_path
+
+    def _get_open_func(self):
+        """Return the appropriate file open function based on compression setting."""
+        return gzip.open if self.compression == "gzip" else open
 
 
 class CsvToPostgresOperator(BaseOperator):
@@ -99,6 +109,9 @@ class CsvToPostgresOperator(BaseOperator):
     :param has_header: Whether the CSV has a header row. Defaults to ``True``.
     :param columns: Explicit column list. If provided, maps CSV columns to these
         table columns and skips the file header (if present).
+    :param truncate: Truncate the table before loading. Defaults to ``False``.
+    :param compression: Compression format. Supports ``"gzip"``.
+        Defaults to ``None`` (no compression).
     :param timeout: Query timeout in minutes. Defaults to ``60``.
     """
 
@@ -114,6 +127,8 @@ class CsvToPostgresOperator(BaseOperator):
         null_string: str = "",
         has_header: bool = True,
         columns: list[str] | None = None,
+        truncate: bool = False,
+        compression: str | None = None,
         timeout: int = 60,
         **kwargs,
     ):
@@ -126,6 +141,8 @@ class CsvToPostgresOperator(BaseOperator):
         self.null_string = null_string
         self.has_header = has_header
         self.columns = columns
+        self.truncate = truncate
+        self.compression = compression
         self.timeout = timeout
 
     def execute(self, context):
@@ -151,7 +168,11 @@ class CsvToPostgresOperator(BaseOperator):
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
-                with open(self.csv_file_path, encoding="utf-8") as csv_file:
+                if self.truncate:
+                    self.log.info("Truncating table %s", self.table_name)
+                    cursor.execute(f"TRUNCATE {self._quote_table_name()}")
+                open_func = self._get_open_func()
+                with open_func(self.csv_file_path, "rt", encoding="utf-8") as csv_file:
                     if self.columns and self.has_header:
                         next(csv_file)
                     cursor.copy_expert(copy_command, csv_file)
@@ -181,3 +202,7 @@ class CsvToPostgresOperator(BaseOperator):
             return ""
         cols = ", ".join(self._quote_identifier(c) for c in self.columns)
         return f"({cols})"
+
+    def _get_open_func(self):
+        """Return the appropriate file open function based on compression setting."""
+        return gzip.open if self.compression == "gzip" else open
