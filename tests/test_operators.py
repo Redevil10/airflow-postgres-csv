@@ -32,40 +32,34 @@ def mock_pg_hook():
 
 
 class TestPostgresToCsvOperator:
-    def test_raises_when_no_query_or_file(self, mock_pg_hook):
-        op = PostgresToCsvOperator(
-            task_id="test",
-            conn_id="test_conn",
-            csv_file_path="/tmp/out.csv",
-        )
-        with pytest.raises(AirflowException, match="Either sql_query or sql_file_path"):
-            op.execute(context={})
-
     def test_executes_with_sql_query(self, mock_pg_hook, tmp_path):
         csv_path = str(tmp_path / "out.csv")
         op = PostgresToCsvOperator(
             task_id="test",
             conn_id="test_conn",
             csv_file_path=csv_path,
-            sql_query="SELECT * FROM users",
+            sql="SELECT * FROM users",
         )
         result = op.execute(context={})
         assert result == csv_path
         mock_pg_hook["cursor"].copy_expert.assert_called_once()
 
     def test_reads_sql_from_file(self, mock_pg_hook, tmp_path):
+        """Test absolute path fallback when Airflow templating doesn't load the file."""
         sql_file = tmp_path / "query.sql"
-        sql_file.write_text("SELECT 1")
+        sql_file.write_text("SELECT * FROM fallback_table")
         csv_path = str(tmp_path / "out.csv")
 
         op = PostgresToCsvOperator(
             task_id="test",
             conn_id="test_conn",
             csv_file_path=csv_path,
-            sql_file_path=str(sql_file),
+            sql=str(sql_file),  # Absolute path
         )
         op.execute(context={})
-        mock_pg_hook["cursor"].mogrify.assert_called_once()
+        # Verify the file content was loaded and passed to mogrify
+        call_args = mock_pg_hook["cursor"].mogrify.call_args[0][0]
+        assert "fallback_table" in call_args
 
     def test_strips_trailing_semicolon(self, mock_pg_hook, tmp_path):
         csv_path = str(tmp_path / "out.csv")
@@ -73,7 +67,7 @@ class TestPostgresToCsvOperator:
             task_id="test",
             conn_id="test_conn",
             csv_file_path=csv_path,
-            sql_query="SELECT 1;  ",
+            sql="SELECT 1;  ",
         )
         op.execute(context={})
         call_args = mock_pg_hook["cursor"].mogrify.call_args
@@ -85,7 +79,7 @@ class TestPostgresToCsvOperator:
             task_id="test",
             conn_id="test_conn",
             csv_file_path=csv_path,
-            sql_query="SELECT 1",
+            sql="SELECT 1",
             has_header=False,
         )
         op.execute(context={})
@@ -98,7 +92,7 @@ class TestPostgresToCsvOperator:
             task_id="test",
             conn_id="test_conn",
             csv_file_path=csv_path,
-            sql_query="SELECT 1",
+            sql="SELECT 1",
             compression="gzip",
         )
         op.execute(context={})

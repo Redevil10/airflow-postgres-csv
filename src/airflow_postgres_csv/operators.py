@@ -17,9 +17,15 @@ class PostgresToCsvOperator(BaseOperator):
 
     :param conn_id: Airflow connection ID for the PostgreSQL database.
     :param csv_file_path: Local file path where the CSV will be saved.
-    :param sql_query: SQL query to execute. Overrides *sql_file_path* if both given.
-    :param sql_file_path: Path to a ``.sql`` file containing the query.
-    :param query_params: Parameters passed to the SQL query via ``cursor.mogrify``.
+    :param sql: SQL code to execute. Can be one of:
+
+        - Inline SQL string (e.g., ``"SELECT * FROM users"``)
+        - Relative path to a ``.sql`` file (e.g., ``"sql/query.sql"``), loaded by
+          Airflow's templating from the DAG folder or ``template_searchpath``
+        - Absolute path to a ``.sql`` file (e.g., ``"/opt/sql/query.sql"``),
+          loaded directly as a fallback
+
+    :param parameters: Parameters passed to the SQL query via ``cursor.mogrify``.
     :param has_header: Include a CSV header row. Defaults to ``True``.
     :param compression: Compression format. Supports ``"gzip"``.
         Defaults to ``None`` (no compression).
@@ -27,18 +33,17 @@ class PostgresToCsvOperator(BaseOperator):
     """
 
     template_fields: Sequence[str] = (
-        "sql_query",
-        "sql_file_path",
+        "sql",
         "csv_file_path",
     )
+    template_ext: Sequence[str] = (".sql",)
 
     def __init__(
         self,
         conn_id: str,
         csv_file_path: str,
-        sql_query: str | None = None,
-        sql_file_path: str | None = None,
-        query_params: dict | None = None,
+        sql: str,
+        parameters: dict | None = None,
         has_header: bool = True,
         compression: str | None = None,
         timeout: int = 60,
@@ -47,30 +52,29 @@ class PostgresToCsvOperator(BaseOperator):
         super().__init__(**kwargs)
         self.conn_id = conn_id
         self.csv_file_path = csv_file_path
-        self.sql_query = sql_query
-        self.sql_file_path = sql_file_path
-        self.query_params = query_params or {}
+        self.sql = sql
+        self.parameters = parameters or {}
         self.has_header = has_header
         self.compression = compression
         self.timeout = timeout
 
     def execute(self, context):
-        if not self.sql_query and not self.sql_file_path:
-            raise AirflowException("Either sql_query or sql_file_path must be provided")
-
-        if not self.sql_query:
-            with open(self.sql_file_path, encoding="utf-8") as f:
-                self.sql_query = f.read()
+        sql = self.sql
+        # Airflow's templating loads .sql files from template search paths.
+        # For absolute paths not in search paths, load manually as fallback.
+        if sql.endswith(".sql"):
+            with open(sql, encoding="utf-8") as f:
+                sql = f.read()
 
         pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
-        cleaned_sql = self.sql_query.strip().rstrip(";")
+        cleaned_sql = sql.strip().rstrip(";")
 
         self.log.info("Running query and saving to CSV: %s", self.csv_file_path)
 
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
-                formatted_sql = cursor.mogrify(cleaned_sql, self.query_params).decode("utf-8")
+                formatted_sql = cursor.mogrify(cleaned_sql, self.parameters).decode("utf-8")
 
                 header_clause = " HEADER" if self.has_header else ""
                 copy_command = f"COPY ({formatted_sql}) TO STDOUT WITH CSV{header_clause}"
