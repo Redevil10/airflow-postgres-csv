@@ -26,5 +26,14 @@ jobs:
           uv venv .venv --python ${{ matrix.python-version }}
           uv pip install -e ".[dev]" --python .venv/bin/python
 
-      - name: Test
-        run: .venv/bin/pytest -v
+      - name: Test with coverage
+        run: .venv/bin/pytest -v --cov=airflow_postgres_csv --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
