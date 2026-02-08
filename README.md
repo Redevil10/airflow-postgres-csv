@@ -1,5 +1,11 @@
 # airflow-postgres-csv
 
+[![lint](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/lint.yml/badge.svg)](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/lint.yml)
+[![tests](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/test.yml/badge.svg)](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/test.yml)
+[![codecov](https://codecov.io/github/Redevil10/airflow-postgres-csv/graph/badge.svg)](https://codecov.io/gh/Redevil10/airflow-postgres-csv)
+[![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/airflow-postgres-csv)](https://pypi.org/project/airflow-postgres-csv/)
+
 Airflow 3 operators for bulk PostgreSQL <-> CSV transfers using `COPY`.
 
 ## Operators
