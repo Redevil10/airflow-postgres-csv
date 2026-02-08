@@ -42,3 +42,25 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Wait for PyPI to update
+        run: sleep 30
+
+      - name: Install from PyPI and test dependencies
+        run: |
+          pip install airflow-postgres-csv pytest
+          pip show airflow-postgres-csv
+
+      - name: Run tests against installed package
+        run: pytest tests/ -v
