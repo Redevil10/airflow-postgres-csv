@@ -17,8 +17,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "apache-airflow>=3.0.0",
-    "apache-airflow-providers-postgres>=6.0.0",
+    "apache-airflow>=2.9",
+    "apache-airflow-providers-postgres>=5.0",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +27,7 @@ dev = [
     "pytest-cov",
     "ruff",
     "pre-commit",
+    "tox>=4.0",
 ]
 
 [project.urls]
@@ -44,3 +45,30 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.tox]
+env_list = ["airflow2", "airflow3"]
+
+[tool.tox.env.airflow2]
+description = "Test against Apache Airflow 2.x (requires Python 3.10–3.12)"
+skip_install = true
+set_env = "PYTHONPATH = {toxinidir}/src"
+deps = [
+    "apache-airflow>=2.9,<3.0",
+    "apache-airflow-providers-postgres>=5.0,<6.0",
+    "pytest>=8.0",
+    "pytest-cov",
+]
+commands = [["pytest", "{posargs:tests/}"]]
+
+[tool.tox.env.airflow3]
+description = "Test against Apache Airflow 3.x"
+skip_install = true
+set_env = "PYTHONPATH = {toxinidir}/src"
+deps = [
+    "apache-airflow>=3.0",
+    "apache-airflow-providers-postgres>=6.0",
+    "pytest>=8.0",
+    "pytest-cov",
+]
+commands = [["pytest", "{posargs:tests/}"]]
