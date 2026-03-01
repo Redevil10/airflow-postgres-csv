@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "airflow-postgres-csv"
-version = "0.2.0"
+version = "0.3.0"
 description = "Airflow operators for PostgreSQL <-> CSV file transfers using COPY"
 readme = "README.md"
 license = "MIT"
@@ -72,3 +72,25 @@ deps = [
     "pytest-cov",
 ]
 commands = [["pytest", "--cov=airflow_postgres_csv", "--cov-report=xml", "{posargs:tests/}"]]
+
+[tool.tox.env.verify-airflow2]
+description = "Verify the published PyPI package works with Airflow 2.x"
+skip_install = true
+deps = [
+    "airflow-postgres-csv",
+    "apache-airflow>=2.9,<3.0",
+    "apache-airflow-providers-postgres>=5.0,<6.0",
+    "pytest>=8.0",
+]
+commands = [["pytest", "{posargs:tests/}"]]
+
+[tool.tox.env.verify-airflow3]
+description = "Verify the published PyPI package works with Airflow 3.x"
+skip_install = true
+deps = [
+    "airflow-postgres-csv",
+    "apache-airflow>=3.0",
+    "apache-airflow-providers-postgres>=6.0",
+    "pytest>=8.0",
+]
+commands = [["pytest", "{posargs:tests/}"]]

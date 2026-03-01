@@ -112,6 +112,22 @@ CsvToPostgresOperator(
 | `null_string` | String representing NULL | `""` |
 | `timeout` | Query timeout in minutes | `60` |
 
+## Development
+
+### Running tests
+
+Tests can be run against both supported Airflow versions using [tox](https://tox.wiki):
+
+```bash
+pip install tox
+
+tox -e airflow2   # test against Airflow 2.x
+tox -e airflow3   # test against Airflow 3.x
+tox               # run both
+```
+
+Each environment installs the correct Airflow and provider versions automatically — no manual dependency management needed.
+
 ## Requirements
 
 | | Airflow 2 | Airflow 3 |
