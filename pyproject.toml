@@ -59,7 +59,7 @@ deps = [
     "pytest>=8.0",
     "pytest-cov",
 ]
-commands = [["pytest", "{posargs:tests/}"]]
+commands = [["pytest", "--cov=airflow_postgres_csv", "--cov-report=xml", "{posargs:tests/}"]]
 
 [tool.tox.env.airflow3]
 description = "Test against Apache Airflow 3.x"
@@ -71,4 +71,4 @@ deps = [
     "pytest>=8.0",
     "pytest-cov",
 ]
-commands = [["pytest", "{posargs:tests/}"]]
+commands = [["pytest", "--cov=airflow_postgres_csv", "--cov-report=xml", "{posargs:tests/}"]]
