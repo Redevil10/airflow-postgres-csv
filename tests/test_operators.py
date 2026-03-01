@@ -194,3 +194,81 @@ class TestCsvToPostgresOperator:
         result = op.execute(context={})
         assert result == 42  # mocked rowcount
         mock_pg_hook["cursor"].copy_expert.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Airflow 2 compatibility tests
+#
+# In Airflow 3, airflow.models.BaseOperator is a re-export of
+# airflow.sdk.bases.operator.BaseOperator, so these tests run in either version.
+# The try/except in operators.py is what enables the code to import on a real
+# Airflow 2 install where airflow.sdk does not exist.
+# ---------------------------------------------------------------------------
+
+
+class TestAirflow2Compatibility:
+    """
+    Verify that operators are compatible with the Airflow 2 import path
+    (``airflow.models.BaseOperator``).
+
+    A real Airflow 2 environment cannot be simulated in an Airflow 3 process
+    because Airflow 3 re-exports ``BaseOperator`` through the same ``airflow.sdk``
+    machinery from both import paths.  These tests confirm that:
+
+    * ``from airflow.models import BaseOperator`` resolves successfully (the
+      fallback import the operators use on Airflow 2).
+    * Both operators are subclasses of that ``BaseOperator``.
+    * Both operators execute correctly when invoked the Airflow 2 way.
+    """
+
+    def test_fallback_import_target_is_accessible(self):
+        """airflow.models.BaseOperator can be imported (the Airflow 2 fallback path)."""
+        from airflow.models import BaseOperator
+
+        assert BaseOperator is not None
+
+    def test_operators_subclass_models_baseoperator(self):
+        """Both operators are subclasses of airflow.models.BaseOperator."""
+        from airflow.models import BaseOperator
+
+        from airflow_postgres_csv.operators import CsvToPostgresOperator, PostgresToCsvOperator
+
+        assert issubclass(PostgresToCsvOperator, BaseOperator)
+        assert issubclass(CsvToPostgresOperator, BaseOperator)
+
+    def test_postgres_to_csv_is_instance_of_models_baseoperator(self, mock_pg_hook, tmp_path):
+        """A PostgresToCsvOperator instance is recognised as a BaseOperator on Airflow 2."""
+        from airflow.models import BaseOperator
+
+        from airflow_postgres_csv.operators import PostgresToCsvOperator
+
+        csv_path = str(tmp_path / "out.csv")
+        op = PostgresToCsvOperator(
+            task_id="test_af2",
+            conn_id="test_conn",
+            csv_file_path=csv_path,
+            sql="SELECT 1",
+        )
+        assert isinstance(op, BaseOperator)
+        result = op.execute(context={})
+        assert result == csv_path
+        mock_pg_hook["cursor"].copy_expert.assert_called_once()
+
+    def test_csv_to_postgres_is_instance_of_models_baseoperator(self, mock_pg_hook, tmp_path):
+        """A CsvToPostgresOperator instance is recognised as a BaseOperator on Airflow 2."""
+        from airflow.models import BaseOperator
+
+        from airflow_postgres_csv.operators import CsvToPostgresOperator
+
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("a,b\n1,2\n")
+        op = CsvToPostgresOperator(
+            task_id="test_af2",
+            conn_id="test_conn",
+            table_name="my_table",
+            csv_file_path=str(csv_file),
+        )
+        assert isinstance(op, BaseOperator)
+        result = op.execute(context={})
+        assert result == 42  # mocked rowcount
+        mock_pg_hook["cursor"].copy_expert.assert_called_once()

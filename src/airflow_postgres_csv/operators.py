@@ -6,7 +6,11 @@ from collections.abc import Sequence
 
 from airflow.exceptions import AirflowException
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.sdk.bases.operator import BaseOperator
+
+try:
+    from airflow.sdk.bases.operator import BaseOperator  # Airflow 3
+except ImportError:
+    from airflow.models import BaseOperator  # Airflow 2
 
 
 class PostgresToCsvOperator(BaseOperator):
