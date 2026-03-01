@@ -46,6 +46,9 @@ jobs:
   verify:
     needs: publish
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        airflow: ["2", "3"]
     steps:
       - uses: actions/checkout@v4
 
@@ -54,13 +57,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install tox
+        run: pip install tox
+
       - name: Wait for PyPI to update
         run: sleep 30
 
-      - name: Install from PyPI and test dependencies
-        run: |
-          pip install airflow-postgres-csv pytest
-          pip show airflow-postgres-csv
-
-      - name: Run tests against installed package
-        run: pytest tests/ -v
+      - name: Run tests against published package (Airflow ${{ matrix.airflow }})
+        run: tox -e verify-airflow${{ matrix.airflow }}
