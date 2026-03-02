@@ -6,6 +6,7 @@
 [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![airflow](https://img.shields.io/badge/airflow-2.9%2B%20%7C%203.x-blue.svg)](https://airflow.apache.org/)
 [![PyPI](https://img.shields.io/pypi/v/airflow-postgres-csv)](https://pypi.org/project/airflow-postgres-csv/)
+[![Downloads](https://static.pepy.tech/badge/airflow-postgres-csv)](https://pepy.tech/project/airflow-postgres-csv)
 
 Airflow operators for bulk PostgreSQL <-> CSV transfers using `COPY`. Supports Airflow 2.9+ and Airflow 3.
 
