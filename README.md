@@ -96,6 +96,7 @@ CsvToPostgresOperator(
 | `has_header` | Include CSV header row | `True` |
 | `compression` | Compression format (`"gzip"` or `None`) | `None` |
 | `timeout` | Query timeout in minutes | `60` |
+| `count_lines` | Count and log the number of lines in the CSV after writing | `True` |
 
 ### CsvToPostgresOperator
 
@@ -112,6 +113,7 @@ CsvToPostgresOperator(
 | `quote_char` | CSV quote character | `'"'` |
 | `null_string` | String representing NULL | `""` |
 | `timeout` | Query timeout in minutes | `60` |
+| `count_lines` | Count and log the number of lines in the CSV before loading | `True` |
 
 ## Development
 

@@ -34,6 +34,8 @@ class PostgresToCsvOperator(BaseOperator):
     :param compression: Compression format. Supports ``"gzip"``.
         Defaults to ``None`` (no compression).
     :param timeout: Query timeout in minutes. Defaults to ``60``.
+    :param count_lines: Count and log the number of lines in the CSV file after writing.
+        Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
     template_fields: Sequence[str] = (
@@ -51,6 +53,7 @@ class PostgresToCsvOperator(BaseOperator):
         has_header: bool = True,
         compression: str | None = None,
         timeout: int = 60,
+        count_lines: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -61,6 +64,7 @@ class PostgresToCsvOperator(BaseOperator):
         self.has_header = has_header
         self.compression = compression
         self.timeout = timeout
+        self.count_lines = count_lines
 
     def execute(self, context):
         sql = self.sql
@@ -89,15 +93,16 @@ class PostgresToCsvOperator(BaseOperator):
                     cursor.copy_expert(copy_command, csv_file)
                     rows = cursor.rowcount
 
-        open_func = self._get_open_func()
-        with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
-            line_count = sum(1 for _ in f)
+        if self.count_lines:
+            open_func = self._get_open_func()
+            with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
+                line_count = sum(1 for _ in f)
 
         self.log.info(
-            "CSV saved: %s (%s rows, %s lines, %s)",
+            "CSV saved: %s (%s rows%s, %s)",
             self.csv_file_path,
             rows if rows >= 0 else "unknown",
-            line_count,
+            f", {line_count} lines" if self.count_lines else "",
             "with header" if self.has_header else "no header",
         )
         return self.csv_file_path
@@ -126,6 +131,8 @@ class CsvToPostgresOperator(BaseOperator):
     :param compression: Compression format. Supports ``"gzip"``.
         Defaults to ``None`` (no compression).
     :param timeout: Query timeout in minutes. Defaults to ``60``.
+    :param count_lines: Count and log the number of lines in the CSV file before loading.
+        Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
     template_fields: Sequence[str] = ("csv_file_path", "table_name")
@@ -143,6 +150,7 @@ class CsvToPostgresOperator(BaseOperator):
         truncate: bool = False,
         compression: str | None = None,
         timeout: int = 60,
+        count_lines: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -157,6 +165,7 @@ class CsvToPostgresOperator(BaseOperator):
         self.truncate = truncate
         self.compression = compression
         self.timeout = timeout
+        self.count_lines = count_lines
 
     def execute(self, context):
         if not os.path.exists(self.csv_file_path):
@@ -164,14 +173,15 @@ class CsvToPostgresOperator(BaseOperator):
 
         pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
 
-        open_func = self._get_open_func()
-        with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
-            line_count = sum(1 for _ in f)
+        if self.count_lines:
+            open_func = self._get_open_func()
+            with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
+                line_count = sum(1 for _ in f)
 
         self.log.info(
-            "Loading %s (%s lines, %s) into %s",
+            "Loading %s (%s%s) into %s",
             self.csv_file_path,
-            line_count,
+            f"{line_count} lines, " if self.count_lines else "",
             "with header" if self.has_header else "no header",
             self.table_name,
         )
