@@ -89,10 +89,15 @@ class PostgresToCsvOperator(BaseOperator):
                     cursor.copy_expert(copy_command, csv_file)
                     rows = cursor.rowcount
 
+        open_func = self._get_open_func()
+        with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
+            line_count = sum(1 for _ in f)
+
         self.log.info(
-            "CSV saved: %s (%s rows, %s)",
+            "CSV saved: %s (%s rows, %s lines, %s)",
             self.csv_file_path,
             rows if rows >= 0 else "unknown",
+            line_count,
             "with header" if self.has_header else "no header",
         )
         return self.csv_file_path
@@ -159,7 +164,17 @@ class CsvToPostgresOperator(BaseOperator):
 
         pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
 
-        self.log.info("Loading %s into %s", self.csv_file_path, self.table_name)
+        open_func = self._get_open_func()
+        with open_func(self.csv_file_path, "rt", encoding="utf-8") as f:
+            line_count = sum(1 for _ in f)
+
+        self.log.info(
+            "Loading %s (%s lines, %s) into %s",
+            self.csv_file_path,
+            line_count,
+            "with header" if self.has_header else "no header",
+            self.table_name,
+        )
 
         column_clause = self._build_column_clause()
         header_clause = "HEADER" if self.has_header and not self.columns else ""
