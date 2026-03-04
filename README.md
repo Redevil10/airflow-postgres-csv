@@ -10,6 +10,8 @@
 
 Airflow operators for bulk PostgreSQL <-> CSV transfers using `COPY`. Supports Airflow 2.9+ and Airflow 3.
 
+Listed on the [Apache Airflow Ecosystem](https://airflow.apache.org/ecosystem/) page.
+
 ## Operators
 
 - **`PostgresToCsvOperator`** - Run a SQL query and export results to a CSV file
