@@ -40,7 +40,7 @@ jobs:
         run: .venv/bin/tox -e ${{ matrix.tox-env }}
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12' && matrix.tox-env == 'airflow3'
+        if: matrix.python-version == '3.13' && matrix.tox-env == 'airflow3'
         uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
