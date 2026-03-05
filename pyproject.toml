@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "apache-airflow>=2.9",
     "apache-airflow-providers-postgres>=5.0",
+    "cryptography>=46.0.5",
 ]
 
 [project.optional-dependencies]
