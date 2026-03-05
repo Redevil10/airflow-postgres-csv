@@ -26,7 +26,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov",
     "ruff",
-    "pre-commit",
+    "prek",
     "tox>=4.0",
 ]
 
