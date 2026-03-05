@@ -50,7 +50,7 @@ testpaths = ["tests"]
 env_list = ["airflow2", "airflow3"]
 
 [tool.tox.env.airflow2]
-description = "Test against Apache Airflow 2.x (requires Python 3.10–3.12)"
+description = "Test against Apache Airflow 2.x (requires Python 3.10–3.13)"
 skip_install = true
 set_env = "PYTHONPATH = {toxinidir}/src"
 deps = [

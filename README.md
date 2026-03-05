@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **License** | [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) |
-| **PyPI** | [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/) [![airflow](https://img.shields.io/badge/airflow-2.9%2B%20%7C%203.x-blue.svg)](https://airflow.apache.org/) [![PyPI](https://img.shields.io/pypi/v/airflow-postgres-csv)](https://pypi.org/project/airflow-postgres-csv/) [![Downloads](https://static.pepy.tech/badge/airflow-postgres-csv)](https://pepy.tech/project/airflow-postgres-csv) |
+| **PyPI** | [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/) [![airflow](https://img.shields.io/badge/airflow-2.9%2B%20%7C%203.x-blue.svg)](https://airflow.apache.org/) [![PyPI](https://img.shields.io/pypi/v/airflow-postgres-csv)](https://pypi.org/project/airflow-postgres-csv/) [![Downloads](https://static.pepy.tech/badge/airflow-postgres-csv)](https://pepy.tech/project/airflow-postgres-csv) |
 | **CI** | [![lint](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/lint.yml/badge.svg)](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/lint.yml) [![tests](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/test.yml/badge.svg)](https://github.com/Redevil10/airflow-postgres-csv/actions/workflows/test.yml) [![codecov](https://codecov.io/github/Redevil10/airflow-postgres-csv/graph/badge.svg)](https://codecov.io/gh/Redevil10/airflow-postgres-csv) |
 
 Airflow operators for bulk PostgreSQL <-> CSV transfers using `COPY`. Supports Airflow 2.9+ and Airflow 3.
@@ -137,7 +137,7 @@ Each environment installs the correct Airflow and provider versions automaticall
 |---|---|---|
 | `apache-airflow` | `>=2.9, <3.0` | `>=3.0` |
 | `apache-airflow-providers-postgres` | `>=5.0, <6.0` | `>=6.0` |
-| Python | 3.10 – 3.12 | 3.10 – 3.12 |
+| Python | 3.10 – 3.13 | 3.10 – 3.13 |
 
 ## License
 
