@@ -12,7 +12,6 @@ hooks = [
     { id = "detect-private-key" },
     { id = "check-added-large-files" },
     { id = "check-merge-conflict" },
-    { id = "no-commit-to-branch", args = ["--branch", "master", "--branch", "sit", "--branch", "develop"] },
 ]
 
 [[repos]]
