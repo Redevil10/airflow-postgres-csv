@@ -7,13 +7,13 @@ name = "airflow-postgres-csv"
 version = "0.3.2"
 description = "Airflow operators for PostgreSQL <-> CSV file transfers using COPY"
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [{ name = "Qing Wan" }]
 classifiers = [
     "Framework :: Apache Airflow",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
 ]
 
 dependencies = [
