@@ -48,7 +48,6 @@ source = { editable = "." }
 dependencies = [
     { name = "apache-airflow" },
     { name = "apache-airflow-providers-postgres" },
-    { name = "cryptography" },
 ]
 
 [package.optional-dependencies]
@@ -64,7 +63,6 @@ dev = [
 requires-dist = [
     { name = "apache-airflow", specifier = ">=2.9" },
     { name = "apache-airflow-providers-postgres", specifier = ">=5.0" },
-    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "prek", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
