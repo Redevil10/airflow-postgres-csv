@@ -33,4 +33,4 @@ jobs:
         run: uv sync
 
       - name: Run type check
-        run: uvx ty check --python .venv src
+        run: uvx ty check src
