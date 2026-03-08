@@ -29,5 +29,8 @@ jobs:
       - name: Run ruff format
         run: uvx ruff format --check --diff
 
+      - name: Install dependencies
+        run: uv sync
+
       - name: Run type check
-        run: uvx ty check src
+        run: uvx ty check --python .venv src
