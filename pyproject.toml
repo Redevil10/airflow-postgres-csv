@@ -9,7 +9,7 @@ description = "Airflow operators for PostgreSQL <-> CSV file transfers using COP
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-authors = [{ name = "Qing Wan" }]
+authors = [{ name = "Qing Wan", email = "juveseason@gmail.com" }]
 classifiers = [
     "Framework :: Apache Airflow",
     "Programming Language :: Python :: 3",
