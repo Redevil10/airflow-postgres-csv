@@ -330,7 +330,7 @@ class TestPsycopg3Compatibility:
     def test_postgres_to_csv_uses_copy(self, mock_pg3_hook, tmp_path):
         # Split a multi-byte UTF-8 character across chunks.
         payload = "id,name\n1,café\n".encode()
-        chunks = [payload[:13], payload[13:]]
+        chunks = [payload[:14], payload[14:]]
         mock_pg3_hook["cursor"].copy.return_value = _FakeCopy(chunks)
         csv_path = tmp_path / "out.csv"
 
