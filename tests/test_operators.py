@@ -272,3 +272,97 @@ class TestAirflow2Compatibility:
         result = op.execute(context={})
         assert result == 42  # mocked rowcount
         mock_pg_hook["cursor"].copy_expert.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# psycopg3 compatibility tests
+#
+# Newer apache-airflow-providers-postgres versions return psycopg3 connections
+# when SQLAlchemy 2 and psycopg are installed. psycopg3 has no ``copy_expert``
+# and its default cursor has no ``mogrify``.
+# ---------------------------------------------------------------------------
+
+
+class _FakeCopy:
+    def __init__(self, chunks=()):
+        self.chunks = list(chunks)
+        self.written = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def __iter__(self):
+        return iter(self.chunks)
+
+    def write(self, data):
+        self.written.append(data)
+
+
+@pytest.fixture
+def mock_pg3_hook(mock_pg_hook):
+    pytest.importorskip("psycopg")
+    cursor = mock_pg_hook["cursor"]
+    del cursor.copy_expert
+    del cursor.mogrify
+    mock_pg_hook["conn"].info.encoding = "utf-8"
+    with patch("psycopg.ClientCursor") as client_cursor_cls:
+        client_cursor_cls.return_value.mogrify.return_value = "SELECT 1"
+        yield {**mock_pg_hook, "client_cursor_cls": client_cursor_cls}
+
+
+class TestPsycopg3Compatibility:
+    def test_statement_timeout_does_not_use_set_with_bind_param(self, mock_pg3_hook, tmp_path):
+        mock_pg3_hook["cursor"].copy.return_value = _FakeCopy()
+        PostgresToCsvOperator(
+            task_id="test",
+            conn_id="test_conn",
+            csv_file_path=str(tmp_path / "out.csv"),
+            sql="SELECT 1",
+            timeout=2,
+        ).execute(context={})
+        sql, params = mock_pg3_hook["cursor"].execute.call_args_list[0][0]
+        assert "set_config('statement_timeout'" in sql
+        assert params == ("120000",)
+
+    def test_postgres_to_csv_uses_copy(self, mock_pg3_hook, tmp_path):
+        # Split a multi-byte UTF-8 character across chunks.
+        payload = "id,name\n1,café\n".encode()
+        chunks = [payload[:13], payload[13:]]
+        mock_pg3_hook["cursor"].copy.return_value = _FakeCopy(chunks)
+        csv_path = tmp_path / "out.csv"
+
+        PostgresToCsvOperator(
+            task_id="test",
+            conn_id="test_conn",
+            csv_file_path=str(csv_path),
+            sql="SELECT * FROM t WHERE id = %(id)s",
+            parameters={"id": 1},
+        ).execute(context={})
+
+        mock_pg3_hook["client_cursor_cls"].return_value.mogrify.assert_called_once_with(
+            "SELECT * FROM t WHERE id = %(id)s", {"id": 1}
+        )
+        copy_sql = mock_pg3_hook["cursor"].copy.call_args[0][0]
+        assert copy_sql == "COPY (SELECT 1) TO STDOUT WITH CSV HEADER"
+        assert csv_path.read_text(encoding="utf-8") == "id,name\n1,café\n"
+
+    def test_csv_to_postgres_uses_copy(self, mock_pg3_hook, tmp_path):
+        fake_copy = _FakeCopy()
+        mock_pg3_hook["cursor"].copy.return_value = fake_copy
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("a,b\n1,2\n")
+
+        result = CsvToPostgresOperator(
+            task_id="test",
+            conn_id="test_conn",
+            table_name="my_table",
+            csv_file_path=str(csv_file),
+            columns=["a", "b"],
+        ).execute(context={})
+
+        assert result == 42
+        assert "".join(fake_copy.written) == "1,2\n"
+        mock_pg3_hook["conn"].commit.assert_called_once()
