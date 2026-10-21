@@ -1,8 +1,10 @@
 """Custom Airflow operators for PostgreSQL <-> CSV file transfers."""
 
+import codecs
 import gzip
 import os
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import TYPE_CHECKING, cast
 
 from airflow.exceptions import AirflowException
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -11,6 +13,55 @@ try:
     from airflow.sdk.bases.operator import BaseOperator  # Airflow 3
 except ImportError:
     from airflow.models import BaseOperator  # Airflow 2
+
+if TYPE_CHECKING:
+    from typing_extensions import LiteralString
+
+_COPY_CHUNK_SIZE = 1024 * 1024
+
+
+def _is_psycopg2(cursor) -> bool:
+    """PostgresHook returns psycopg2 or psycopg3 connections depending on the environment."""
+    return hasattr(cursor, "copy_expert")
+
+
+def _set_statement_timeout(cursor, timeout_minutes: int) -> None:
+    # ``SET`` cannot take bind parameters with psycopg3 server-side binding;
+    # ``set_config`` works with both psycopg2 and psycopg3.
+    cursor.execute(
+        "SELECT set_config('statement_timeout', %s, false)",
+        (str(int(timeout_minutes * 60 * 1000)),),
+    )
+
+
+def _mogrify(conn, cursor, sql: str, parameters) -> str:
+    if _is_psycopg2(cursor):
+        result = cursor.mogrify(sql, parameters)
+    else:
+        import psycopg
+
+        result = psycopg.ClientCursor(conn).mogrify(cast("LiteralString", sql), parameters)
+    return result.decode("utf-8") if isinstance(result, bytes) else result
+
+
+def _copy_to_file(conn, cursor, copy_command: str, file) -> None:
+    if _is_psycopg2(cursor):
+        cursor.copy_expert(copy_command, file)
+        return
+    decoder = codecs.getincrementaldecoder(conn.info.encoding)()
+    with cursor.copy(copy_command) as copy:
+        for data in copy:
+            file.write(decoder.decode(bytes(data)))
+    file.write(decoder.decode(b"", final=True))
+
+
+def _copy_from_file(cursor, copy_command: str, file) -> None:
+    if _is_psycopg2(cursor):
+        cursor.copy_expert(copy_command, file)
+        return
+    with cursor.copy(copy_command) as copy:
+        while data := file.read(_COPY_CHUNK_SIZE):
+            copy.write(data)
 
 
 class PostgresToCsvOperator(BaseOperator):
@@ -29,7 +80,7 @@ class PostgresToCsvOperator(BaseOperator):
         - Absolute path to a ``.sql`` file (e.g., ``"/opt/sql/query.sql"``),
           loaded directly as a fallback
 
-    :param parameters: Parameters passed to the SQL query via ``cursor.mogrify``.
+    :param parameters: Parameters bound client-side into the SQL query (via ``mogrify``).
     :param has_header: Include a CSV header row. Defaults to ``True``.
     :param compression: Compression format. Supports ``"gzip"``.
         Defaults to ``None`` (no compression).
@@ -38,7 +89,7 @@ class PostgresToCsvOperator(BaseOperator):
         Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
-    template_fields: Sequence[str] = (
+    template_fields: Collection[str] = (
         "sql",
         "csv_file_path",
     )
@@ -81,8 +132,8 @@ class PostgresToCsvOperator(BaseOperator):
 
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
-                formatted_sql = cursor.mogrify(cleaned_sql, self.parameters).decode("utf-8")
+                _set_statement_timeout(cursor, self.timeout)
+                formatted_sql = _mogrify(conn, cursor, cleaned_sql, self.parameters)
 
                 header_clause = " HEADER" if self.has_header else ""
                 copy_command = f"COPY ({formatted_sql}) TO STDOUT WITH CSV{header_clause}"
@@ -90,7 +141,7 @@ class PostgresToCsvOperator(BaseOperator):
                 rows = 0
                 open_func = self._get_open_func()
                 with open_func(self.csv_file_path, "wt", encoding="utf-8") as csv_file:
-                    cursor.copy_expert(copy_command, csv_file)
+                    _copy_to_file(conn, cursor, copy_command, csv_file)
                     rows = cursor.rowcount
 
         if self.count_lines:
@@ -135,7 +186,7 @@ class CsvToPostgresOperator(BaseOperator):
         Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
-    template_fields: Sequence[str] = ("csv_file_path", "table_name")
+    template_fields: Collection[str] = ("csv_file_path", "table_name")
 
     def __init__(
         self,
@@ -200,7 +251,7 @@ class CsvToPostgresOperator(BaseOperator):
 
         with pg_hook.get_conn() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SET statement_timeout = %s;", (self.timeout * 60 * 1000,))
+                _set_statement_timeout(cursor, self.timeout)
                 if self.truncate:
                     self.log.info("Truncating table %s", self.table_name)
                     cursor.execute(f"TRUNCATE {self._quote_table_name()}")
@@ -208,7 +259,7 @@ class CsvToPostgresOperator(BaseOperator):
                 with open_func(self.csv_file_path, "rt", encoding="utf-8") as csv_file:
                     if self.columns and self.has_header:
                         next(csv_file)
-                    cursor.copy_expert(copy_command, csv_file)
+                    _copy_from_file(cursor, copy_command, csv_file)
                 rows = cursor.rowcount
             conn.commit()
 

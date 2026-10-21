@@ -21,6 +21,10 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         tox-env: ["airflow2", "airflow3"]
+        include:
+          # Airflow 2 does not support Python 3.14
+          - python-version: "3.14"
+            tox-env: "airflow3"
 
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +44,7 @@ jobs:
         run: .venv/bin/tox -e ${{ matrix.tox-env }}
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.13' && matrix.tox-env == 'airflow3'
+        if: matrix.python-version == '3.14' && matrix.tox-env == 'airflow3'
         uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
