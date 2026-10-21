@@ -3,7 +3,8 @@
 import codecs
 import gzip
 import os
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import TYPE_CHECKING, cast
 
 from airflow.exceptions import AirflowException
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -12,6 +13,9 @@ try:
     from airflow.sdk.bases.operator import BaseOperator  # Airflow 3
 except ImportError:
     from airflow.models import BaseOperator  # Airflow 2
+
+if TYPE_CHECKING:
+    from typing_extensions import LiteralString
 
 _COPY_CHUNK_SIZE = 1024 * 1024
 
@@ -36,7 +40,7 @@ def _mogrify(conn, cursor, sql: str, parameters) -> str:
     else:
         import psycopg
 
-        result = psycopg.ClientCursor(conn).mogrify(sql, parameters)
+        result = psycopg.ClientCursor(conn).mogrify(cast("LiteralString", sql), parameters)
     return result.decode("utf-8") if isinstance(result, bytes) else result
 
 
@@ -85,7 +89,7 @@ class PostgresToCsvOperator(BaseOperator):
         Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
-    template_fields: Sequence[str] = (
+    template_fields: Collection[str] = (
         "sql",
         "csv_file_path",
     )
@@ -182,7 +186,7 @@ class CsvToPostgresOperator(BaseOperator):
         Disable for very large files to avoid the extra read. Defaults to ``True``.
     """
 
-    template_fields: Sequence[str] = ("csv_file_path", "table_name")
+    template_fields: Collection[str] = ("csv_file_path", "table_name")
 
     def __init__(
         self,
